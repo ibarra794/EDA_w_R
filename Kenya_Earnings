@@ -1,0 +1,100 @@
+install.packages('patchwork')
+library(gt)
+library(patchwork)
+library(ggridges)
+library(tidyverse)
+library(sandwich)
+library(WDI)
+library(tinytable)
+library(modelsummary)
+
+kenya <- read.csv("https://raw.githubusercontent.com/mkevane/econ42/main/kenya_earnings.csv")
+
+# descriptive statistics table
+datasummary(data=kenya, All(kenya) ~ Mean+Median+SD,
+            title = "Table 1. Descriptives of earnings in Kenya")
+
+# visualizations
+#magnify 
+kenya_earnings<-kenya%>%filter(earnings_usd<750)
+#Figure1 scatter plot of earnings by educ_yrs
+ggplot(kenya_earnings,  
+       aes(x=educ_yrs,y=earnings_usd))+
+  geom_smooth(color="#145c21") +
+  geom_jitter(alpha=0.1,size=0.85,color="#63a668")+
+                theme(panel.background = element_rect(fill="#ededed",color="#ededed"),
+                      plot.background = element_rect(fill="#ededed",color="#ededed"),
+                      panel.grid.major = element_line(colour="#a3a3a3",size=0.1))+
+  labs(x="Years of Education",
+       y="Monthly earnings in USD", title="Figure 1. Monthly earnings in USD by Years of Education")
+
+# Figure2. create a histogram and density chart 
+ggplot(kenya,
+       aes(x=educ_yrs,fill=as.factor(rural)))+
+  geom_histogram(aes(y=..density..),bins = 50,alpha=0.5,
+                 position="identity",color="white")+
+  geom_density(alpha=0.0,size=1,show.legend= FALSE)+
+  theme_minimal()+
+  labs(y="Density",x="Years of Education",fill=" ")+
+  scale_fill_brewer(palette="Set2",labels=c("Urban","Rural"))+
+  theme(legend.position="top")+
+  labs(title='Figure 2. Density of education in urban and rural areas')
+
+# Figure3 create a ggridges  chart
+ggplot(kenya,aes(y=as.factor(female),x=educ_yrs,fill=as.factor(muslim) ))+
+  geom_density_ridges(  alpha = .7, scale=1.5,color = "white", from = 0, to = 20)+
+  theme_minimal()+
+  theme_ridges(grid = FALSE)+
+  scale_y_discrete(expand = c(0, 0)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_fill_brewer(palette="Set1",labels=c("Other","Muslim"))+
+  labs(x="Years of education",y="Gender (1=Female)",fill=" ",
+       title="Figure 3. Years of education by gender and Muslim identification")+
+  theme(legend.position="top",aspect.ratio=2/3,plot.title = element_text(hjust = 0.5))
+
+#Figure4 scatter plot
+kenya_yle<-kenya%>%filter(years_lived_elsewhere>0)
+ggplot(kenya_yle,  
+       aes(x=years_lived_elsewhere, y=educ_yrs))+
+  geom_smooth(color="#294c71") +
+  geom_jitter(alpha=0.1,size=0.85,color="#417c62")+
+  theme(panel.background = element_rect(fill="#ededed",color="#ededed"),
+        plot.background = element_rect(fill="#ededed",color="#ededed"),
+        panel.grid.major = element_line(colour="#a3a3a3",size=0.1))+
+  labs(x="Years lived outside of Kenya",
+       y="Years of Education", title="Figure 4. Years of education by amount of years lived outside of Kenya")
+
+
+# Create raw chart element
+rawchart<-ggplot(kenya)+
+  theme_classic()
+# Create bar chart of pre summer school test score and summer school 
+p1<-rawchart+
+  geom_boxplot(aes(x=as.factor(wealth_group),y=educ_yrs))+
+  labs(y="Years of Education", x="Wealth Group")+
+  labs(title="Fig 5. Education by Wealth Group")
+# Create box plot of parental schooling and summer school attendance
+p2<-rawchart+
+  geom_boxplot(aes(x=as.factor(rural),y=educ_yrs))+
+  labs(y="Years of Education", x="Rural")+
+  labs(title="Education by Location")
+# Figure5. Combine charts
+p1+p2
+
+
+
+# Table2 regressions
+reg1 <- lm(data=kenya, earnings_usd~educ_yrs)
+reg1.2 <- lm(data=kenya, earnings_usd~educ_yrs)
+reg1.3 <- lm(data=kenya, earnings_usd~educ_yrs+age)
+reg1.4 <- lm(data=kenya, earnings_usd~educ_yrs+years_lived_elsewhere+kikuyu+christian_main+christian_evang)
+
+models=list(reg1,reg1.2,reg1.3,reg1.4)
+modelsummary(models, output = 'gt',
+             fmt = fmt_decimal(digits = 3, pdigits = 3),
+             stars=T,
+             vcov = "robust",
+             gof_map = c("nobs", "r.squared"),
+             title = "Table 2. Regression table showing the effect of Years of Education on 
+             monthly earnings in USD")
+
